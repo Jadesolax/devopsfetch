@@ -1,9 +1,24 @@
+#!/usr/bin/env python3
+
+import subprocess
+import sys
+import pkg_resources
 import argparse
 import psutil
-import subprocess
 import pwd
 from datetime import datetime
 from tabulate import tabulate
+
+def install_packages():
+    required_packages = ['psutil', 'tabulate']
+    installed_packages = [pkg.key for pkg in pkg_resources.working_set]
+    missing_packages = [pkg for pkg in required_packages if pkg not in installed_packages]
+    
+    if missing_packages:
+        print(f"Installing missing packages: {', '.join(missing_packages)}")
+        subprocess.check_call([sys.executable, '-m', 'pip', 'install', *missing_packages])
+
+install_packages()
 
 def get_active_ports():
     connections = psutil.net_connections()
@@ -22,21 +37,34 @@ def get_detailed_port_info(port):
     return data
 
 def get_docker_info():
-    images = subprocess.check_output(["docker", "images", "--format", "{{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.CreatedAt}}"]).decode().splitlines()
-    containers = subprocess.check_output(["docker", "ps", "--format", "{{.Names}}\t{{.Image}}\t{{.Status}}"]).decode().splitlines()
-    return images, containers
+    try:
+        images = subprocess.check_output(["docker", "images", "--format", "{{.Repository}}\t{{.Tag}}\t{{.ID}}\t{{.CreatedAt}}"]).decode().splitlines()
+        containers = subprocess.check_output(["docker", "ps", "--format", "{{.Names}}\t{{.Image}}\t{{.Status}}"]).decode().splitlines()
+        return images, containers
+    except subprocess.CalledProcessError as e:
+        print(f"Error fetching Docker info: {e}")
+        return [], []
 
 def get_detailed_container_info(container_name):
-    details = subprocess.check_output(["docker", "inspect", container_name]).decode()
-    return details
+    try:
+        details = subprocess.check_output(["docker", "inspect", container_name]).decode()
+        return details
+    except subprocess.CalledProcessError as e:
+        return f"Error fetching details for container {container_name}: {e}"
 
 def get_nginx_info():
-    domains = subprocess.check_output(["nginx", "-T"]).decode()
-    return domains
+    try:
+        domains = subprocess.check_output(["nginx", "-T"]).decode()
+        return domains
+    except subprocess.CalledProcessError as e:
+        return f"Error fetching Nginx info: {e}"
 
 def get_detailed_nginx_info(domain):
-    config = subprocess.check_output(["nginx", "-T"]).decode()
-    return config
+    try:
+        config = subprocess.check_output(["nginx", "-T"]).decode()
+        return config
+    except subprocess.CalledProcessError as e:
+        return f"Error fetching Nginx config for domain {domain}: {e}"
 
 def get_user_info():
     users = []
@@ -50,10 +78,13 @@ def get_user_info():
     return users
 
 def get_detailed_user_info(username):
-    user = pwd.getpwnam(username)
-    last_login = subprocess.check_output(["lastlog", "-u", username]).decode().splitlines()[-1].split()[-2:]
-    last_login = ' '.join(last_login)
-    return [user.pw_name, user.pw_uid, user.pw_gid, last_login]
+    try:
+        user = pwd.getpwnam(username)
+        last_login = subprocess.check_output(["lastlog", "-u", username]).decode().splitlines()[-1].split()[-2:]
+        last_login = ' '.join(last_login)
+        return [user.pw_name, user.pw_uid, user.pw_gid, last_login]
+    except KeyError:
+        return [username, "N/A", "N/A", "No login info"]
 
 def main():
     parser = argparse.ArgumentParser(description="DevOps Fetch Tool")
@@ -76,10 +107,12 @@ def main():
     if args.docker:
         if args.docker == 'all':
             images, containers = get_docker_info()
-            print("Docker Images:")
-            print(tabulate([img.split('\t') for img in images], headers=["Repository", "Tag", "Image ID", "Created At"]))
-            print("\nDocker Containers:")
-            print(tabulate([cont.split('\t') for cont in containers], headers=["Name", "Image", "Status"]))
+            if images:
+                print("Docker Images:")
+                print(tabulate([img.split('\t') for img in images], headers=["Repository", "Tag", "Image ID", "Created At"]))
+            if containers:
+                print("\nDocker Containers:")
+                print(tabulate([cont.split('\t') for cont in containers], headers=["Name", "Image", "Status"]))
         else:
             container_info = get_detailed_container_info(args.docker)
             print(container_info)
