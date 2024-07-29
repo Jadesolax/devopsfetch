@@ -57,4 +57,4 @@ def get_detailed_user_info(username):
     last_login = ' '.join(last_login)
     return [user.pw_name, user.pw_uid, user.pw_gid, last_login]
 
-def main()
+def main():
