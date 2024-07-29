@@ -58,3 +58,49 @@ def get_detailed_user_info(username):
     return [user.pw_name, user.pw_uid, user.pw_gid, last_login]
 
 def main():
+    parser = argparse.ArgumentParser(description="DevOps Fetch Tool")
+    parser.add_argument("-p", "--port", nargs='?', const='all', help="Display active ports and services or detailed information about a specific port")
+    parser.add_argument("-d", "--docker", nargs='?', const='all', help="List Docker images and containers or provide detailed information about a specific container")
+    parser.add_argument("-n", "--nginx", nargs='?', const='all', help="Display Nginx domains and their ports or provide detailed configuration information for a specific domain")
+    parser.add_argument("-u", "--users", nargs='?', const='all', help="List users and their last login times or provide detailed information about a specific user")
+    parser.add_argument("-t", "--time", help="Display activities within a specified time range")
+
+    args = parser.parse_args()
+
+    if args.port:
+        if args.port == 'all':
+            ports = get_active_ports()
+            print(tabulate(ports, headers=["Port", "IP Address", "PID", "Service Name"]))
+        else:
+            port_info = get_detailed_port_info(int(args.port))
+            print(tabulate(port_info, headers=["Port", "IP Address", "PID", "Service Name", "Status"]))
+
+    if args.docker:
+        if args.docker == 'all':
+            images, containers = get_docker_info()
+            print("Docker Images:")
+            print(tabulate([img.split('\t') for img in images], headers=["Repository", "Tag", "Image ID", "Created At"]))
+            print("\nDocker Containers:")
+            print(tabulate([cont.split('\t') for cont in containers], headers=["Name", "Image", "Status"]))
+        else:
+            container_info = get_detailed_container_info(args.docker)
+            print(container_info)
+
+    if args.nginx:
+        if args.nginx == 'all':
+            nginx_info = get_nginx_info()
+            print(nginx_info)
+        else:
+            nginx_details = get_detailed_nginx_info(args.nginx)
+            print(nginx_details)
+
+    if args.users:
+        if args.users == 'all':
+            users = get_user_info()
+            print(tabulate(users, headers=["Username", "UID", "GID", "Last Login"]))
+        else:
+            user_info = get_detailed_user_info(args.users)
+            print(tabulate([user_info], headers=["Username", "UID", "GID", "Last Login"]))
+
+if __name__ == "__main__":
+    main()
